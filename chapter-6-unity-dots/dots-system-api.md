@@ -40,8 +40,7 @@ public partial struct RotationSystem : ISystem {
 
 ## 2. SystemAPI.Query 的优雅遍历
 
-在 `OnUpdate` 中，我们需要获取所有长着“旋转速度”并且能被挪动位置的实体。
-在第三部分，我们讲过多组件查询（尤其是底层是用 Archetype 时），涉及到复杂的 Chunk 抓取。但现在，面对开发者，Unity 把它封装成了一行极其优美的 `foreach` 代码：`SystemAPI.Query`。
+在 `OnUpdate` 中，我们需要获取所有长着“旋转速度”并且能被挪动位置的实体。 在第三部分，我们讲过多组件查询（尤其是底层是用 Archetype 时），涉及到复杂的 Chunk 抓取。但现在，面对开发者，Unity 把它封装成了一行极其优美的 `foreach` 代码：`SystemAPI.Query`。
 
 让我们把 `OnUpdate` 填满：
 
@@ -68,11 +67,10 @@ public partial struct RotationSystem : ISystem {
 
 写代码时，看到 `foreach` 很多开发者会警惕：这是一个在堆内存里分配迭代器（IEnumerator）并引发 GC 的行为吗？
 
-**绝对不是！** 
-这里的 `SystemAPI.Query` 是一个存在于**源码生成期（Source Generator）**的魔法宏。
-在你保存代码进行编译时，Unity 的 Source Generator 会扫描你的代码结构。它会识别出你在查询 `LocalTransform` (可读写) 和 `RotationSpeed` (只读)。
+**绝对不是！** 这里的 `SystemAPI.Query` 是一个存在于**源码生成期（Source Generator）**&#x7684;魔法宏。 在你保存代码进行编译时，Unity 的 Source Generator 会扫描你的代码结构。它会识别出你在查询 `LocalTransform` (可读写) 和 `RotationSpeed` (只读)。
 
 然后它在后台悄悄把这行优雅的 `foreach` 翻译成了如下极端暴力的非托管代码逻辑（用第一视觉描述）：
+
 1. 找出所有拥有这两个组件组合的原型内存块（Chunks）。
 2. 将这些 Chunk 以 `NativeArray` 的形式全部提取出来。
 3. 把那个简单的旋转算法 `RotateY`，像盖章一样用传统的 C-style 数组遍历，硬扣在内存指针上。
@@ -85,8 +83,7 @@ public partial struct RotationSystem : ISystem {
 
 还记得我们在讲“伪共享与多线程碰撞”时，提到的那个问题吗？如果不知道谁读谁写，强上多线程就会死锁或者数据报废。
 
-明确标注 `RefRO`（只读）是现代 ECS 编程的核心修养：
-当我们告诉系统，我们**只看**速度（`RefRO<RotationSpeed>`），但是**要改**方向（`RefRW<LocalTransform>`）时，ECS 底层框架就吃下了一颗定心丸。它知道如果在其他角落有个系统只改速度，不碰方向，那这俩系统完全就可以一起并行运行！
+明确标注 `RefRO`（只读）是现代 ECS 编程的核心修养： 当我们告诉系统，我们**只看**速度（`RefRO<RotationSpeed>`），但是**要改**方向（`RefRW<LocalTransform>`）时，ECS 底层框架就吃下了一颗定心丸。它知道如果在其他角落有个系统只改速度，不碰方向，那这俩系统完全就可以一起并行运行！
 
 在单线程（主线程）的 `SystemAPI` 遍历中，读写修饰可能只决定你能点出啥属性。但在下一章我们要讲的 **Job System（多线程并发任务）** 中，这几句修饰词则是决定代码生死和能否通过编译的绝对安检闸门。
 
